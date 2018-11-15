@@ -331,7 +331,7 @@ int main ()
 {	clock_t t_in,t_fin;
 	double secs;
 	srand(time(NULL));
-        int **pop,**aux_pop,n_reg,n_ind,n_colour,best;
+        int **pop,**aux_pop,n_reg,n_ind,n_colour,best,M,N;
         int Nreg,bestInd;
         FILE *input;
         chain filename;
@@ -348,12 +348,13 @@ int main ()
         	scanf("%d",&n_ind);
 	
 	}while(n_ind%2!=0);
-        printf("ENTER THE COLOUR REGIONS SIZE\n");
-        scanf("%d",&n_reg);
+        printf("ENTER THE COLOUR REGIONS SIZE MxN\n");
+        scanf("%d   %d",&M,&N);
         printf("ENTER THE No. OF COLOURS\n");
         scanf("%d",&n_colour);
         printf("GRAPH FILE NAME\n");
         scanf("%s",filename);
+	n_reg = M*N;
 	struct Node *admat[n_reg]; //A structure to allocate the array of linked lists for the adjacency matrix
 	int fitness[n_ind],mejor_ind[n_reg],aux_fitness[n_ind]; // An array to store the fitness of each individual
 	
@@ -390,19 +391,19 @@ int main ()
 	}
 	printf("SOLUCION ENCONTRADA DESPUÉS DE %d GENERACIONES Y FUE EL INDIVIDUO %d\n",N_gen,bestInd);
 
-	/*int **sol;
-	sol = create_matrix(sqrt(n_reg),sqrt(n_reg));
+	int **sol;
+	sol = create_matrix(M,N);
 	int k=0;
-	for(int i=0; i<sqrt(n_reg); i++)
+	for(int i=0; i<M; i++)
 	{
-		for(int j=0; j<sqrt(n_reg);j++)
+		for(int j=0; j<N;j++)
 		{
 			sol[i][j] = mejor_ind[k];
 			k++;
 			printf("%d   \t",sol[i][j]);
 		}
 		printf("\n");
-	}while(k<n_reg);*/
+	}while(k<n_reg);
 
 	t_fin = clock();
 
