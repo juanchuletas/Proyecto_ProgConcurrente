@@ -403,7 +403,7 @@ int main ()
 			printf("%d   \t",sol[i][j]);
 		}
 		printf("\n");
-	}while(k<n_reg);
+	}
 
 	t_fin = clock();
 
