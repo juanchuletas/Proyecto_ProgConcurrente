@@ -191,7 +191,7 @@ int main ()
 	{
   		ids[i] = i;
   		pthread_create(&threads[i], NULL,generate_rand_pop, (void *) ids[i]);
-  		pthread_create(&threads[i], NULL,get_fitness, (void *) ids[i]);
+  		//pthread_create(&threads[i], NULL,get_fitness, (void *) ids[i]);
 	}
         for(int i=0;i<N_THREADS;i++) 
 	{
