@@ -104,8 +104,9 @@ void get_ad_matrix(chain filename)
 }
 void *generate_rand_pop(void *id)
 {
-	int thread_id, init,fin;
-	thread_id = (intptr_t)id;
+	int init,fin;
+	long thread_id;
+	thread_id = (long)id;
 	init = (N_IND/N_THREADS)*thread_id;
 	fin = (N_IND/N_THREADS)*(thread_id + 1);
 	
@@ -119,7 +120,7 @@ void *generate_rand_pop(void *id)
                         //pthread_mutex_unlock(&m1);
                 }
         }
-	//printf("HOLA SOY EL HILO %d\n",thread_id);
+	//printf("HOLA SOY EL HILO %ld\n",thread_id);
 	pthread_exit(NULL);
 
 
