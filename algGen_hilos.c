@@ -2,41 +2,42 @@
 #include<stdlib.h>
 #include<math.h>
 #include<time.h>
+#include <semaphore.h>
 #include<pthread.h>
 
 #define N_IND 4
 #define N_REG 4
 #define N_THREADS 4
 #define COLOURS 2
-int pop[N_IND][N_REG];
-int aux_pop[N_IND][N_REG];
-int fitness[N_IND];
-pthread_mutex_t c1;
-
-
-typedef char chain[256];
+int best =100; //variable global compartida
 struct Node
 {
 
         int num;
         struct Node* next;
-};
+}*admat[N_REG]; //GLOBAL ACCESS TO THE ADJACENCY MATRIX
+int pop[N_IND][N_REG];
+int aux_pop[N_IND][N_REG];
+int fitness[N_IND];
+int contador=0;
+pthread_mutex_t c1;
+sem_t S;  //declaracion del semaforo S
+sem_t C;  //declaracion del semaforo C
+typedef char chain[256];
 
-struct Node *admat[N_REG]; //GLOBAL ACCESS TO THE ADJACENCY MATRIX
-
-void add_nodes(int num,int k)
+void add_nodes(struct Node **temp,int num)
 {
         struct Node *aux_node=(struct Node *)malloc(sizeof(struct Node));
         aux_node->num = num;
         aux_node->next=NULL;
-        if(admat[k]==NULL)
+        if(*temp==NULL)
         {
-                admat[k] = aux_node;
+ *temp = aux_node;
         }
         else
         {
                 struct Node *p;
-                p = admat[k];
+                p = *temp;
                 while(p->next!=NULL)
                 {
                         p = p->next;
@@ -46,121 +47,250 @@ void add_nodes(int num,int k)
         }
 
 }
-void display()
-{
-        for(int k=0; k<N_REG; k++)
-        {
-                struct Node *current;
-                for(current=admat[k]; current!=NULL; current = current->next)
-                {
-                        printf("%d -->\t",current->num);
-
-                }
-                admat[k]++;
-                printf("%s","NULL");
-                printf("\n");
-        }
-
-}
 void get_ad_matrix(chain filename)
-{       
+{
         //THIS MODULE GETS THE ADJACENCY MATRIX USING THE
         // GRAPH CONECTIONS IN THE GRAPH FILE
         FILE *input;
         int k=0,j=0,num,Nreg;
         if((input = fopen(filename,"r"))==NULL)
-        {       
+        {
                 printf("FAILED TO OPEN FILE\n");
+ exit(1);
         }
         fscanf(input,"%d%*[^\n]\n",&Nreg);
         if(Nreg!=N_REG)
-        {       
+        {
                 printf("WRONG FILE: NUMBER OF REGIONS ARE DIFFERENT FROM THE GRAPH FILE\n");
                 printf("COLOURING REGIONS INTO THE CODE: %d\n",N_REG);
-		exit(1);
+ exit(1);
         }
-        for(int i=0;i<Nreg; i++)
-        {       
-                admat[i] = NULL;
-        }
+for(int i=0; i<N_REG; i++)
+{
+ admat[i]=NULL;
+}
         fscanf(input,"%d",&num);
         while(!feof(input))
-        {       
+        {
                 if(num!=-1)
-                {       
+                {
                         j=num;
-                        add_nodes(j,k);
+                        add_nodes(&admat[k],j);
                         j++;
                 }
                 else
-                {       
+                {
                         k++;
                 }
                 fscanf(input,"%d",&num);
-        
+
         }
         fclose(input);
 
 }
-void *generate_rand_pop(void *id)
+void display()
 {
-	int init,fin;
-	long thread_id;
-	thread_id = (long)id;
-	init = (N_IND/N_THREADS)*thread_id;
-	fin = (N_IND/N_THREADS)*(thread_id + 1);
-	
+struct Node *tmp;
+for(int i=0; i<N_REG; i++)
+{
+ tmp=admat[i];
+ while(tmp!=NULL)
+ {
+  printf("%d-->\t",tmp->num);
+  tmp = tmp -> next;
+ }
+ printf("%s","NULL");
+ printf("\n");
+}
+
+}
+void *barrera(void *id)
+{
+
+ // int valsem;
+  //int valsem2;
+  int band=0;
+  long thread_id = (long)id;
+//band=0;
+   sem_wait(&C);
+   contador++;
+ if(contador == N_THREADS)
+ {
+  contador =0;
+
+  for(int i=0; i < N_THREADS-1; i++)
+  {
+   sem_post(&S);
+  }
+ }
+        else{
+  band = 1;
+ }
+sem_post(&C);
+if(band==1)
+{
+ sem_wait(&S);
+}
+}
+void generate_rand_pop(void *id)
+{
+int init,fin;
+int valsem;
+int valsem2;
+int band=0;
+//printf("MODULO POBLACION ALEATORIA\n");
+long thread_id = (long)id;
+init = (N_IND/N_THREADS)*thread_id;
+fin = (N_IND/N_THREADS)*(thread_id + 1);
+
         //THIS FUNCTION CREATES THE FIRST POPULATION RANDOMLY
         for(int i=init; i<fin; i++)
         {
                 for(int j=0; j<N_REG; j++)
                 {
-                        //pthread_mutex_lock(&m1);
-			pop[i][j] = rand()%COLOURS;
-                        //pthread_mutex_unlock(&m1);
+  pop[i][j] = rand()%COLOURS;
                 }
-        }
-	//printf("HOLA SOY EL HILO %ld\n",thread_id);
-	pthread_exit(NULL);
-
-
 }
-/*int get_sum(int iter)
+barrera(thread_id);
+//pthread_exit(NULL);
+}
+int get_sum(int iter)
 {
+struct Node *current;
         int count = 0;
         for(int k=0; k<N_REG; k++)
         {
-                struct Node *current;
-                for(current=admat[k]; current!=NULL; current = current->next)
-                {
-                        if(pop[iter][k]==pop[iter][current->num])
-                        {
-                                count = count + 1;
-                        }
-                }
-                admat[k]++;
+ current = admat[k];
+ while(current!=NULL)
+ {
+  if(pop[iter][k]==pop[iter][current->num])
+  {
+   count = count + 1;
+  }
+  current = current->next;
+ }
+
         }
         return count;
 }
-void *get_fitness(void *id)
+void get_fitness(void *id)
 {
         //THIS MODULE COMPUTES THE FITNESS OF AN INDIVIDUAL IN THE
         //POPULATION MATRIX: RETURNS THE FITNESS ARRAY FILLED
-	int thread_id, init,fin,value,count;
-	thread_id = (intptr_t)id;
-	init = (N_IND/N_THREADS)*thread_id;
-	fin = (N_IND/N_THREADS)*(thread_id + 1);
+int init,fin,value,count,valsem,valsem2,band=0;
+long thread_id = (long)id;
+struct Node *current;
+init = (N_IND/N_THREADS)*thread_id;
+fin = (N_IND/N_THREADS)*(thread_id + 1);
         for(int i=init; i<fin; i++)
         {
-                pthread_mutex_lock(&c1);
-		value  = get_sum(i);
-                //fitness[i]=value;
-                pthread_mutex_unlock(&c1);
-	
+ //printf("Soy hilo %ld y ejecuto inicio %d hasta fin %d\n",thread_id,init,fin);
+ count = 0;
+ for(int k=0; k<N_REG; k++)
+ {
+  current=admat[k];
+  while(current!=NULL)
+  {
+   if(pop[i][k]==pop[i][current->num])
+   {
+    count = count + 1;
+   }
+   current = current -> next;
+  }
+ }
+ fitness[i] = count;
         }
-	printf("Soy Hilo %d y mi fitness es %d\n",thread_id,value);
-	pthread_exit(NULL);
-}*/
+}
+
+void get_mejor(void *id)
+{  int i,mejor,indiv;
+    int j,inicio,fin;
+    int mloc[N_THREADS];
+
+   long thread_id = (long)id;
+   inicio = (N_IND/N_THREADS)*thread_id;
+   fin = (N_IND/N_THREADS)*(thread_id+1);
+   mejor = fitness[inicio];
+
+   for(i=inicio; i<fin; i++)
+    {
+        if(fitness[i]<=mejor) //fitness i es el fitness del i-esimo individuo
+        {
+            mejor = fitness[i];
+            indiv = i;
+        }
+    }
+    mloc[thread_id] = mejor;
+
+    pthread_mutex_lock(&c1 );
+    if(mloc[thread_id] < best)
+        best = mloc[thread_id];
+    pthread_mutex_unlock(&c1 );
+
+   printf("Soy hilo %d y mi mejor fitness es: %d \n", thread_id,mejor);
+}
+
+void mutacion(void *id )
+{
+
+int init,fin;
+
+long thread_id = (long)id;
+init = (N_IND/N_THREADS)*thread_id;
+fin = (N_IND/N_THREADS)*(thread_id + 1);
+
+int rnd_reg,rnd_color;
+for(int i = init; i < fin; i++)
+{
+ rnd_reg = rand()%N_REG;
+ rnd_color = (rand()%COLOURS)+3;
+ aux_pop[i][rnd_reg] = rnd_color;
+
+}
+
+barrera(id);
+}
+
+void cruzamiento(void *id)
+{
+     int cruz_point,inicio,fin;
+     long thread_id = (long)id;
+     cruz_point=rand()%(N_REG-1)+1; //crea el punto de cruzamiento
+     inicio = (N_IND/N_THREADS)*thread_id;
+     fin = (N_IND/N_THREADS)*(thread_id+1);
+
+
+      for(int i=inicio; i<fin; i++)
+        {
+                for(int j=0; j<cruz_point; j++)
+                {
+                    aux_pop[i][j]=pop[i][j];
+                }
+
+        }
+
+       for(int i=0; i<N_IND; i=i+2) //llena el cruze en los pares
+        {
+                for(int j=cruz_point; j<N_REG; j++)
+                {
+                    aux_pop[i][j]=pop[i+1][j];
+
+                }
+        }
+
+        for(int i=1; i<N_IND; i=i+2) //llena el cruze en los impares
+        {
+                for(int j=cruz_point; j<N_REG; j++)
+                {
+                    aux_pop[i][j]=pop[i-1][j];
+
+                }
+        }
+
+    barrera(id);
+
+}
+
 void display_pop()
 {
         // THIS FUNCTION DISPLAYS THE POPULATION MATRIX
@@ -175,36 +305,58 @@ void display_pop()
                         printf("\n");
         }
 }
+void *genetic_pool(void *id)
+{
+long thread_id = (long)id;
+//printf("WELCOME THE GENETIC POOL I'M THREAD %ld\n",thread_id);
+generate_rand_pop(id);
+get_fitness(id);
+get_mejor(id);
+printf("El mejor de todos los hilos es: %d \n",best);
+while(best!=0)
+{
+    cruzamiento(id);
+    mutacion(id);
+    get_fitness(id);
+    get_mejor(id);
+}
+
+
+pthread_exit(NULL);
+}
 int main ()
 {
-	chain filename;
-	pthread_t threads[N_THREADS];
-	int rc;
-	long ids[N_THREADS];
-	printf("GRAPH FILE NAME\n");
+srand(time(NULL));
+chain filename;
+pthread_t threads[N_THREADS];
+int rc;
+pthread_mutex_init(&c1,NULL);
+sem_init(&S,0,0); //inicializacion del semaforo S = 0
+sem_init(&C,0,1); //inicializacion del semaforo S = 1
+long ids[N_THREADS];
+printf("GRAPH FILE NAME\n");
         scanf("%s",filename);
 
-	get_ad_matrix(filename);
+get_ad_matrix(filename);
+display();
 
-	display();
+for(int i=0;i<N_THREADS;i++)
+{
+    ids[i] = i;
+    pthread_create(&threads[i], NULL,genetic_pool, (void *) ids[i]);
+}
+for(int i=0;i<N_THREADS;i++)
+{
+ pthread_join(threads[i],NULL);
+}
 
-	for(int i=0;i<N_THREADS;i++)
-	{
-  		ids[i] = i;
-  		pthread_create(&threads[i], NULL,generate_rand_pop, (void *) ids[i]);
-  		//pthread_create(&threads[i], NULL,get_fitness, (void *) ids[i]);
-	}
-        for(int i=0;i<N_THREADS;i++) 
-	{
-		pthread_join(threads[i],NULL);
-	}
-	display_pop();
-	/*for(int i=0; i<N_IND; i++)
-        {
-                printf("ind[%d]  = %d\n",i,fitness[i]);
-        }*/
-
-	return 0;
+display_pop();
+for(int i=0; i<N_IND; i++)
+{
+ printf("IND[%d] fitness = %d\n",i,fitness[i]);
+}
+return 0;
 
 
 }
+
