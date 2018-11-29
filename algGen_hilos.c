@@ -2,14 +2,14 @@
 #include<stdlib.h>
 #include<math.h>
 #include<time.h>
-#include <semaphore.h>
+#include<semaphore.h>
 #include<pthread.h>
 
 #define N_IND 4
 #define N_REG 4
 #define N_THREADS 4
 #define COLOURS 2
-int best =100; //variable global compartida
+int best =10000000; //variable global compartida
 struct Node
 {
 
@@ -110,7 +110,7 @@ void *barrera(void *id)
  // int valsem;
   //int valsem2;
   int band=0;
-  long thread_id = (long)id;
+  int *thread_id = (int *)id;
 //band=0;
    sem_wait(&C);
    contador++;
@@ -139,9 +139,9 @@ int valsem;
 int valsem2;
 int band=0;
 //printf("MODULO POBLACION ALEATORIA\n");
-long thread_id = (long)id;
-init = (N_IND/N_THREADS)*thread_id;
-fin = (N_IND/N_THREADS)*(thread_id + 1);
+int *thread_id = (int *)id;
+init = (N_IND/N_THREADS)*(*thread_id);
+fin = (N_IND/N_THREADS)*(*thread_id + 1);
 
         //THIS FUNCTION CREATES THE FIRST POPULATION RANDOMLY
         for(int i=init; i<fin; i++)
@@ -151,7 +151,7 @@ fin = (N_IND/N_THREADS)*(thread_id + 1);
   pop[i][j] = rand()%COLOURS;
                 }
 }
-barrera(thread_id);
+//barrera(thread_id);
 //pthread_exit(NULL);
 }
 int get_sum(int iter)
@@ -178,10 +178,10 @@ void get_fitness(void *id)
         //THIS MODULE COMPUTES THE FITNESS OF AN INDIVIDUAL IN THE
         //POPULATION MATRIX: RETURNS THE FITNESS ARRAY FILLED
 int init,fin,value,count,valsem,valsem2,band=0;
-long thread_id = (long)id;
+int *thread_id = (int *)id;
 struct Node *current;
-init = (N_IND/N_THREADS)*thread_id;
-fin = (N_IND/N_THREADS)*(thread_id + 1);
+init = (N_IND/N_THREADS)*(*thread_id);
+fin = (N_IND/N_THREADS)*(*thread_id + 1);
         for(int i=init; i<fin; i++)
         {
  //printf("Soy hilo %ld y ejecuto inicio %d hasta fin %d\n",thread_id,init,fin);
@@ -207,9 +207,9 @@ void get_mejor(void *id)
     int j,inicio,fin;
     int mloc[N_THREADS];
 
-   long thread_id = (long)id;
-   inicio = (N_IND/N_THREADS)*thread_id;
-   fin = (N_IND/N_THREADS)*(thread_id+1);
+   int *thread_id = (int *)id;
+   inicio = (N_IND/N_THREADS)*(*thread_id);
+   fin = (N_IND/N_THREADS)*(*thread_id+1);
    mejor = fitness[inicio];
 
    for(i=inicio; i<fin; i++)
@@ -220,14 +220,14 @@ void get_mejor(void *id)
             indiv = i;
         }
     }
-    mloc[thread_id] = mejor;
+    mloc[*thread_id] = mejor;
 
     pthread_mutex_lock(&c1 );
-    if(mloc[thread_id] < best)
-        best = mloc[thread_id];
+    if(mloc[*thread_id] < best)
+        best = mloc[*thread_id];
     pthread_mutex_unlock(&c1 );
 
-   printf("Soy hilo %d y mi mejor fitness es: %d \n", thread_id,mejor);
+   printf("Soy hilo %d y mi mejor fitness es: %d \n", *thread_id,mejor);
 }
 
 void mutacion(void *id )
@@ -235,9 +235,9 @@ void mutacion(void *id )
 
 int init,fin;
 
-long thread_id = (long)id;
-init = (N_IND/N_THREADS)*thread_id;
-fin = (N_IND/N_THREADS)*(thread_id + 1);
+int *thread_id = (int *)id;
+init = (N_IND/N_THREADS)*(*thread_id);
+fin = (N_IND/N_THREADS)*(*thread_id + 1);
 
 int rnd_reg,rnd_color;
 for(int i = init; i < fin; i++)
@@ -248,16 +248,16 @@ for(int i = init; i < fin; i++)
 
 }
 
-barrera(id);
+//barrera(id);
 }
 
 void cruzamiento(void *id)
 {
      int cruz_point,inicio,fin;
-     long thread_id = (long)id;
+     int *thread_id = (int *)id;
      cruz_point=rand()%(N_REG-1)+1; //crea el punto de cruzamiento
-     inicio = (N_IND/N_THREADS)*thread_id;
-     fin = (N_IND/N_THREADS)*(thread_id+1);
+     inicio = (N_IND/N_THREADS)*(*thread_id);
+     fin = (N_IND/N_THREADS)*(*thread_id+1);
 
 
       for(int i=inicio; i<fin; i++)
@@ -287,7 +287,7 @@ void cruzamiento(void *id)
                 }
         }
 
-    barrera(id);
+   // barrera(id);
 
 }
 
@@ -307,20 +307,23 @@ void display_pop()
 }
 void *genetic_pool(void *id)
 {
-long thread_id = (long)id;
+int  *thread_id = (int *)id;
 //printf("WELCOME THE GENETIC POOL I'M THREAD %ld\n",thread_id);
 generate_rand_pop(id);
+
+
 get_fitness(id);
 get_mejor(id);
 printf("El mejor de todos los hilos es: %d \n",best);
-while(best!=0)
+/*while(best!=0)
 {
     cruzamiento(id);
     mutacion(id);
     get_fitness(id);
     get_mejor(id);
+    barrera(id);
 }
-
+*/
 
 pthread_exit(NULL);
 }
@@ -333,7 +336,7 @@ int rc;
 pthread_mutex_init(&c1,NULL);
 sem_init(&S,0,0); //inicializacion del semaforo S = 0
 sem_init(&C,0,1); //inicializacion del semaforo S = 1
-long ids[N_THREADS];
+int ids[N_THREADS];
 printf("GRAPH FILE NAME\n");
         scanf("%s",filename);
 
@@ -343,7 +346,7 @@ display();
 for(int i=0;i<N_THREADS;i++)
 {
     ids[i] = i;
-    pthread_create(&threads[i], NULL,genetic_pool, (void *) ids[i]);
+    pthread_create(&threads[i], NULL,genetic_pool, (void *) &ids[i]);
 }
 for(int i=0;i<N_THREADS;i++)
 {
@@ -355,8 +358,8 @@ for(int i=0; i<N_IND; i++)
 {
  printf("IND[%d] fitness = %d\n",i,fitness[i]);
 }
+
 return 0;
 
 
 }
-
