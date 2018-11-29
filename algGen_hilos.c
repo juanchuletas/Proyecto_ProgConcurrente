@@ -5,9 +5,9 @@
 #include<semaphore.h>
 #include<pthread.h>
 
-#define N_IND 4
+#define N_IND 8
 #define N_REG 4
-#define N_THREADS 4
+#define N_THREADS 2
 #define COLOURS 2
 int best =10000000; //variable global compartida
 struct Node
@@ -135,9 +135,6 @@ if(band==1)
 void generate_rand_pop(void *id)
 {
 int init,fin;
-int valsem;
-int valsem2;
-int band=0;
 //printf("MODULO POBLACION ALEATORIA\n");
 int *thread_id = (int *)id;
 init = (N_IND/N_THREADS)*(*thread_id);
@@ -227,7 +224,7 @@ void get_mejor(void *id)
         best = mloc[*thread_id];
     pthread_mutex_unlock(&c1 );
 
-   printf("Soy hilo %d y mi mejor fitness es: %d \n", *thread_id,mejor);
+   //printf("Soy hilo %d y mi mejor fitness es: %d \n", *thread_id,mejor);
 }
 
 void mutacion(void *id )
@@ -243,8 +240,8 @@ int rnd_reg,rnd_color;
 for(int i = init; i < fin; i++)
 {
  rnd_reg = rand()%N_REG;
- rnd_color = (rand()%COLOURS)+3;
- aux_pop[i][rnd_reg] = rnd_color;
+ rnd_color = (rand()%COLOURS);
+ pop[i][rnd_reg] = rnd_color;
 
 }
 
@@ -259,33 +256,33 @@ void cruzamiento(void *id)
      inicio = (N_IND/N_THREADS)*(*thread_id);
      fin = (N_IND/N_THREADS)*(*thread_id+1);
 
-
-      for(int i=inicio; i<fin; i++)
-        {
-                for(int j=0; j<cruz_point; j++)
-                {
-                    aux_pop[i][j]=pop[i][j];
-                }
-
+     for(int i=inicio; i<fin; i++)
+     {
+     	for(int j=0; j<cruz_point; j++)
+    	{
+           aux_pop[i][j] = pop[i][j];
         }
 
-       for(int i=0; i<N_IND; i=i+2) //llena el cruze en los pares
-        {
-                for(int j=cruz_point; j<N_REG; j++)
-                {
-                    aux_pop[i][j]=pop[i+1][j];
-
-                }
+     }
+     
+     for(int i=inicio; i<fin; i=i+2)
+     {
+     	for(int j=0; j<cruz_point; j++)
+    	{
+           aux_pop[i][j] = pop[i+1][j];
+	   aux_pop[i+1][j] = pop[i][j];
         }
 
-        for(int i=1; i<N_IND; i=i+2) //llena el cruze en los impares
-        {
-                for(int j=cruz_point; j<N_REG; j++)
-                {
-                    aux_pop[i][j]=pop[i-1][j];
+     }
 
-                }
+     for(int i=inicio; i<fin; i++)
+     {
+     	for(int j=0; j<cruz_point; j++)
+    	{
+           pop[i][j] = aux_pop[i][j];
         }
+
+     }
 
    // barrera(id);
 
@@ -308,25 +305,32 @@ void display_pop()
 void *genetic_pool(void *id)
 {
 int  *thread_id = (int *)id;
+int con=0;
 //printf("WELCOME THE GENETIC POOL I'M THREAD %ld\n",thread_id);
 generate_rand_pop(id);
 
 
 get_fitness(id);
 get_mejor(id);
-printf("El mejor de todos los hilos es: %d \n",best);
-/*while(best!=0)
+//printf("El mejor de todos los hilos es: %d \n",best);
+while(best!=0)
 {
+    con++;
     cruzamiento(id);
     mutacion(id);
     get_fitness(id);
     get_mejor(id);
+    printf("El mejor de todos los hilos es: %d \n",best);
+    /*if(best==0)
+    {
+	pthread_exit(NULL);	
+   	break;
+    }*/
     barrera(id);
 }
-*/
-
-pthread_exit(NULL);
 }
+
+
 int main ()
 {
 srand(time(NULL));
@@ -363,3 +367,4 @@ return 0;
 
 
 }
+
