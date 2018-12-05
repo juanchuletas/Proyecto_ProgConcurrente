@@ -232,7 +232,7 @@ int get_best(int **pop,int fitness[],int mejor_ind[],int n_ind,int n_reg,int *pr
     int i,indiv,mejor;
     mejor = fitness[0];
     indiv=0;
-    for(int i=1; i<(n_ind)-1; i++)
+    for(int i=1; i<n_ind; i++)
     {
         if(fitness[i]<mejor) //fitness i es el fitness del i-esimo individuo
         {
@@ -241,7 +241,7 @@ int get_best(int **pop,int fitness[],int mejor_ind[],int n_ind,int n_reg,int *pr
             indiv = i;
         }
     }
-    printf("fitness = %d\n",mejor);
+    printf("fitness= %d\n",mejor);
     //printf("La solucion es:\n");
     for(int j=0; j<n_reg; j++)
     {
@@ -252,21 +252,111 @@ int get_best(int **pop,int fitness[],int mejor_ind[],int n_ind,int n_reg,int *pr
     return mejor;
 }
 
+void cruzamiento(int **point2, int **point2_aux, int n_ind, int n_reg)
+{
+     int cruz_point;
+
+     cruz_point=rand()%(n_reg-1)+1; //crea el punto de cruzamiento
+
+
+      for(int i=0; i<n_ind; i++)
+        {
+                for(int j=0; j<cruz_point; j++)
+                {
+                    point2_aux[i][j]=point2[i][j];
+                }
+
+        }
+
+       for(int i=0; i<n_ind; i=i+2) //llena el cruze en los pares
+        {
+                for(int j=cruz_point; j<n_reg; j++)
+                {
+                    point2_aux[i][j]=point2[i+1][j];
+
+                }
+        }
+
+        for(int i=1; i<n_ind; i=i+2) //llena el cruze en los impares
+        {
+                for(int j=cruz_point; j<n_reg; j++)
+                {
+                    point2_aux[i][j]=point2[i-1][j];
+
+                }
+        }
+
+}
+
+void mutation(int **aux_pop,int n_ind,int n_reg,int n_colour )
+{
+
+	int rnd_reg,rnd_color;
+	for(int i=0; i<n_ind; i++)
+	{
+		rnd_reg = rand()%n_reg;
+		rnd_color = rand()%n_colour;
+		aux_pop[i][rnd_reg] = rnd_color;
+		
+	}
+
+
+}
+
+void clonacion(int **pop, int **aux_pop, int n_ind, int n_reg){
+
+    int i,j;
+
+    for(i=0; i<n_ind; i++){
+        for(j=0; j<n_reg; j++){
+            aux_pop[i][j] = pop[i][j];
+        }
+    }
+
+}
+
+void compara_mut(int aux_fitness[],int fitness[], int **pop, int **aux_pop,int n_ind, int n_reg)
+{
+   for(int i=0; i<n_ind; i++)
+   {
+      if(aux_fitness[i]<=fitness[i])
+      {
+         fitness[i] = aux_fitness[i];
+         for(int j=0; j<n_reg; j++)
+         {
+            pop[i][j] = aux_pop[i][j];
+         }
+      }
+   }  
+}
+void compara_cruz(int aux_fitness[],int fitness[], int **pop, int **aux_pop,int n_ind, int n_reg)
+{
+   for(int i=0; i<n_ind; i++)
+   {
+      if(aux_fitness[i]<fitness[i])
+      {
+         fitness[i] = aux_fitness[i];
+         for(int j=0; j<n_reg; j++)
+         {
+            pop[i][j] = aux_pop[i][j];
+         }
+      }
+   }
+}
 
 int main(int argc, char **argv)
   {
 
   srand(time(NULL));
-  int id,size,i,var,*vector,best;
-  int **auxpop;
-  int *pop;
+  int id,size,i,var,*vector,best,bestInd;
+  int *mat,**aux_pop,**pop;
   int n_reg,n_ind,n_colors;
   int M,N;
   //chain filename;
  char filename[]="graf3x3.txt";
   
   n_reg=9;
-  n_ind=16;
+  n_ind=8;
   n_colors=2;
 
 /*if(id==0){
@@ -294,7 +384,8 @@ int main(int argc, char **argv)
   var=(n_reg*(n_ind/size));
   
   vector=crea_vector(var);
-  auxpop=create_matrix(n_ind/size,n_reg);
+  pop=create_matrix(n_ind/size,n_reg);
+  aux_pop=create_matrix(n_ind/size,n_reg);
   struct Node *admat[n_reg]; //A structure to allocate the array of linked lists for the adjacency matrix
   int fitness[n_ind/size],mejor_ind[n_reg],aux_fitness[n_ind/size]; // An array to store the fitness of each individual
   get_ad_matrix(admat,n_reg,filename);
@@ -302,23 +393,48 @@ int main(int argc, char **argv)
  
   if (id==0)
     { 
-       pop=create_pop(n_ind,n_reg,n_colors);
+       mat=create_pop(n_ind,n_reg,n_colors);
        printf("Matriz Inicio:\n");
-       printArray(pop, n_ind*n_reg);
+       printArray(mat, n_ind*n_reg);
        printf("\n");
     }
 
 
-  MPI_Scatter(pop,var,MPI_INT,vector,var,MPI_INT,0,MPI_COMM_WORLD);
-  rellena(auxpop,vector,n_ind/size,n_reg);
-  get_fitness(auxpop,admat,fitness,n_ind/size,n_reg);
+  MPI_Scatter(mat,var,MPI_INT,vector,var,MPI_INT,0,MPI_COMM_WORLD);
+  rellena(pop,vector,n_ind/size,n_reg);
+  get_fitness(pop,admat,fitness,n_ind/size,n_reg);
   printf("Soy arreglo %d y estos son mis valores:\n",id);
-  display_pop(auxpop,n_ind/size,n_reg);
+  display_pop(pop,n_ind/size,n_reg);
   for(i=0;i<(n_ind/size);i++)
    {
      printf("soy: %d Fitness= %d \n",id,fitness[i]);
    }
-  
+  best=get_best(pop,fitness,mejor_ind,n_ind/size,n_reg,&bestInd);
+  printf("Soy el proceso: %d y mi mejor es: %d\n",id,best);
+
+  int N_gen;
+  while(best!=0)
+	{
+		cruzamiento(pop,aux_pop,n_ind/size,n_reg);
+		get_fitness(aux_pop,admat,aux_fitness,n_ind/size,n_reg);
+		compara_cruz(aux_fitness,fitness,pop,aux_pop,n_ind/size,n_reg);
+		best = get_best(pop,fitness,mejor_ind,n_ind/size,n_reg,&bestInd);
+		if(best==0)
+		{
+			break;
+		}	
+		clonacion(pop,aux_pop,n_ind/size,n_reg);
+		mutation(aux_pop,n_ind/size,n_reg,n_colors);
+		get_fitness(aux_pop,admat,aux_fitness,n_ind/size,n_reg);
+		compara_mut(aux_fitness,fitness,pop,aux_pop,n_ind/size,n_reg);
+		best = get_best(pop,fitness,mejor_ind,n_ind/size,n_reg,&bestInd);
+
+		N_gen++;
+	
+
+	}
+
+
   MPI_Finalize();
 
   return 0;
