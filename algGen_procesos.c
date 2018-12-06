@@ -252,6 +252,21 @@ int get_best(int **pop,int fitness[],int mejor_ind[],int n_ind,int n_reg,int *pr
     return mejor;
 }
 
+int get_worst(int **pop,int fitness[],int n_ind,int n_reg)
+{
+    int i,indiv,worst;
+    worst = fitness[0];
+    indiv=0;
+    for(int i=1; i<n_ind; i++)
+    {
+        if(fitness[i]>worst) //fitness i es el fitness del i-esimo individuo
+        {
+            worst = fitness[i];
+            indiv = i;
+        }
+    }
+    return indiv;
+}
 void cruzamiento(int **point2, int **point2_aux, int n_ind, int n_reg)
 {
      int cruz_point;
@@ -344,6 +359,8 @@ void compara_cruz(int aux_fitness[],int fitness[], int **pop, int **aux_pop,int 
    }
 }
 
+//void inter_mejor_menor(int **pop, int *best_ind, int 
+
 int main(int argc, char **argv)
   {
 
@@ -352,6 +369,7 @@ int main(int argc, char **argv)
   int *mat,**aux_pop,**pop;
   int n_reg,n_ind,n_colors;
   int M,N;
+  int pos_worst;
   //chain filename;
  char filename[]="graf3x3.txt";
   
@@ -410,10 +428,12 @@ int main(int argc, char **argv)
      printf("soy: %d Fitness= %d \n",id,fitness[i]);
    }
   best=get_best(pop,fitness,mejor_ind,n_ind/size,n_reg,&bestInd);
+  pos_worst = get_worst(pop,fitness,n_ind/size,n_reg);
   printf("Soy el proceso: %d y mi mejor es: %d\n",id,best);
+  printf("Soy el proceso: %d y mi peor esta en la pos: %d\n",id,pos_worst);
 
   int N_gen;
-  while(best!=0)
+  /*while(best!=0)
 	{
 		cruzamiento(pop,aux_pop,n_ind/size,n_reg);
 		get_fitness(aux_pop,admat,aux_fitness,n_ind/size,n_reg);
@@ -432,7 +452,7 @@ int main(int argc, char **argv)
 		N_gen++;
 	
 
-	}
+	}*/
 
 
   MPI_Finalize();
