@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <mpi.h>
 #include <time.h>
+#define BEST_LOCAL 50
 typedef char chain[256];
 
 // -------- MODULES FOR THE ARRAY OF LINKED LIST CREATION---------------//
@@ -241,7 +242,7 @@ int get_best(int **pop,int fitness[],int mejor_ind[],int n_ind,int n_reg,int *pr
             indiv = i;
         }
     }
-    printf("fitness= %d\n",mejor);
+    //printf("fitness= %d\n",mejor);
     //printf("La solucion es:\n");
     for(int j=0; j<n_reg; j++)
     {
@@ -358,6 +359,44 @@ void compara_cruz(int aux_fitness[],int fitness[], int **pop, int **aux_pop,int 
       }
    }
 }
+void intercambia(int pos_worst,int **pop,int mejor_ind[],int n_reg)
+{
+	for(int i=0; i<n_reg;i++)
+	{
+		pop[pos_worst][i]=mejor_ind[i];
+	}
+
+}
+int best_process(int vect_recep[],int size)
+{
+	int local,pos;
+	local = vect_recep[0];
+	pos = 0;
+	for(int i=1;i<size;i++)
+	{ 
+		if(vect_recep[i]<local)
+		{
+			local = vect_recep[i];
+			pos = i;
+
+		}
+	}
+	return pos;
+}
+void print_best_sol(int **sol,int mejor_ind[],int M,int N)
+{
+	int k=0;
+	for(int i=0; i<M; i++)
+	{
+		for(int j=0; j<N;j++)
+		{
+			sol[i][j] = mejor_ind[k];
+			k++;
+			printf("%d   \t",sol[i][j]);
+		}
+		printf("\n");
+	}
+}
 
 //void inter_mejor_menor(int **pop, int *best_ind, int 
 
@@ -368,93 +407,122 @@ int main(int argc, char **argv)
   int id,size,i,var,*vector,best,bestInd;
   int *mat,**aux_pop,**pop;
   int n_reg,n_ind,n_colors;
-  int M,N;
+  int M=30,N=30;
   int pos_worst;
   //chain filename;
- char filename[]="graf3x3.txt";
+ char filename[]="graf30x30.txt";
   
-  n_reg=9;
-  n_ind=8;
+  n_reg=M*N;
+  n_ind=120;
   n_colors=2;
 
-/*if(id==0){
-
-        do
-	{
-		printf("ENTER THE POULATION SIZE\n");
-        	scanf("%d",&n_ind);
-	
-	}while(n_ind%2!=0);
-        printf("ENTER THE COLOUR REGIONS SIZE MxN\n");
-        scanf("%d   %d",&M,&N);
-        printf("ENTER THE No. OF COLOURS\n");
-        scanf("%d",&n_colors);
-        printf("GRAPH FILE NAME\n");
-        scanf("%s",filename);
-	n_reg = M*N;
-
-        }*/
    
   MPI_Init(&argc,&argv);
   MPI_Comm_rank(MPI_COMM_WORLD,&id);
   MPI_Comm_size(MPI_COMM_WORLD,&size);
+  MPI_Status Reporte;
   
   var=(n_reg*(n_ind/size));
   
   vector=crea_vector(var);
   pop=create_matrix(n_ind/size,n_reg);
   aux_pop=create_matrix(n_ind/size,n_reg);
+  int pos;
+  int flag=0;
   struct Node *admat[n_reg]; //A structure to allocate the array of linked lists for the adjacency matrix
-  int fitness[n_ind/size],mejor_ind[n_reg],aux_fitness[n_ind/size]; // An array to store the fitness of each individual
+  int fitness[n_ind/size],mejor_ind[n_reg],aux_fitness[n_ind/size];
+  int vect_recep[size]; // An array to store the fitness of each individual
   get_ad_matrix(admat,n_reg,filename);
-  disp_ad_matrix(admat,n_reg);
+  //disp_ad_matrix(admat,n_reg);
  
   if (id==0)
-    { 
+  { 
        mat=create_pop(n_ind,n_reg,n_colors);
-       printf("Matriz Inicio:\n");
-       printArray(mat, n_ind*n_reg);
-       printf("\n");
-    }
-
-
+       //printf("Matriz Inicio:\n");
+       //printArray(mat, n_ind*n_reg);
+  }
   MPI_Scatter(mat,var,MPI_INT,vector,var,MPI_INT,0,MPI_COMM_WORLD);
   rellena(pop,vector,n_ind/size,n_reg);
   get_fitness(pop,admat,fitness,n_ind/size,n_reg);
-  printf("Soy arreglo %d y estos son mis valores:\n",id);
-  display_pop(pop,n_ind/size,n_reg);
-  for(i=0;i<(n_ind/size);i++)
-   {
-     printf("soy: %d Fitness= %d \n",id,fitness[i]);
-   }
   best=get_best(pop,fitness,mejor_ind,n_ind/size,n_reg,&bestInd);
   pos_worst = get_worst(pop,fitness,n_ind/size,n_reg);
-  printf("Soy el proceso: %d y mi mejor es: %d\n",id,best);
-  printf("Soy el proceso: %d y mi peor esta en la pos: %d\n",id,pos_worst);
-
-  int N_gen;
-  /*while(best!=0)
+  MPI_Gather(&best,1,MPI_INT,vect_recep,1,MPI_INT,0,MPI_COMM_WORLD);
+  if(id==0)
+  {
+	  pos = best_process(vect_recep,size);
+     	  printf("MEJOR FITNESS = %d\n",vect_recep[pos]);
+	  if(vect_recep[pos]==0)
+	  {
+		  flag=1;
+	  }
+  }
+  MPI_Bcast(&flag,1,MPI_INT,0,MPI_COMM_WORLD);
+  while(flag==0)
 	{
+		MPI_Bcast(&pos,1,MPI_INT,0,MPI_COMM_WORLD);
+  		MPI_Bcast(mejor_ind,n_reg,MPI_INT,pos,MPI_COMM_WORLD);
+ 		 if(id!=pos)
+  		{
+			intercambia(pos_worst,pop,mejor_ind,n_reg);
+  		}
+  		int N_gen;
 		cruzamiento(pop,aux_pop,n_ind/size,n_reg);
 		get_fitness(aux_pop,admat,aux_fitness,n_ind/size,n_reg);
 		compara_cruz(aux_fitness,fitness,pop,aux_pop,n_ind/size,n_reg);
 		best = get_best(pop,fitness,mejor_ind,n_ind/size,n_reg,&bestInd);
-		if(best==0)
-		{
-			break;
-		}	
+  		pos_worst = get_worst(pop,fitness,n_ind/size,n_reg);
+  		MPI_Gather(&best,1,MPI_INT,vect_recep,1,MPI_INT,0,MPI_COMM_WORLD);
+  		if(id==0)
+  		{
+			pos = best_process(vect_recep,size);
+     			printf("MEJOR FITNESS = %d\n",vect_recep[pos]);
+	  		if(vect_recep[pos]==0)
+	  		{
+				flag=1;
+	  		}
+  		}
+  		MPI_Bcast(&flag,1,MPI_INT,0,MPI_COMM_WORLD);
+  		MPI_Bcast(&pos,1,MPI_INT,0,MPI_COMM_WORLD);
+  		MPI_Bcast(mejor_ind,n_reg,MPI_INT,pos,MPI_COMM_WORLD);
+  		if(id!=pos)
+  		{
+			  intercambia(pos_worst,pop,mejor_ind,n_reg);
+  		}
 		clonacion(pop,aux_pop,n_ind/size,n_reg);
 		mutation(aux_pop,n_ind/size,n_reg,n_colors);
 		get_fitness(aux_pop,admat,aux_fitness,n_ind/size,n_reg);
 		compara_mut(aux_fitness,fitness,pop,aux_pop,n_ind/size,n_reg);
 		best = get_best(pop,fitness,mejor_ind,n_ind/size,n_reg,&bestInd);
+  		pos_worst = get_worst(pop,fitness,n_ind/size,n_reg);
+  		MPI_Gather(&best,1,MPI_INT,vect_recep,1,MPI_INT,0,MPI_COMM_WORLD);
+  		if(id==0)
+  		{
+			pos = best_process(vect_recep,size);
+     			printf("MEJOR FITNESS = %d\n",vect_recep[pos]);
+	  		if(vect_recep[pos]==0)
+	  		{
+		      		flag=1;
+	  		}
+  		}
+  		MPI_Bcast(&flag,1,MPI_INT,0,MPI_COMM_WORLD);
+  		MPI_Bcast(&pos,1,MPI_INT,0,MPI_COMM_WORLD);
+  		MPI_Bcast(mejor_ind,n_reg,MPI_INT,pos,MPI_COMM_WORLD);
+  		if(id!=pos)
+  		{
+			  intercambia(pos_worst,pop,mejor_ind,n_reg);
+  		}
 
 		N_gen++;
 	
 
-	}*/
+	}
+  if(id==0)
+  {
+	int **sol;
+  	sol=create_matrix(M,N);
 
-
+	print_best_sol(sol,mejor_ind,M,N);
+  }
   MPI_Finalize();
 
   return 0;
